@@ -1,0 +1,59 @@
+name: Custom.Windows.Volatility3.VadInfo
+description: |
+  Display Virtual Address Descriptor (VAD) tree for process memory.
+  Shows all memory regions and their protections.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 2.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: FilterPID
+    type: int
+    default: 0
+    description: Filter by specific process ID (0 for all)
+  
+  - name: OutputFormat
+    type: string
+    default: "pretty"
+    description: Output format (pretty, csv, json, jsonl)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: VADInfo
+    query: |
+      LET base_args = array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat)
+      
+      LET quiet_flag = if(condition=QuietMode, then=array(a="-q"), else=array())
+      
+      LET pid_args = if(
+        condition=FilterPID > 0,
+        then=array(a="windows.vadinfo", b="--pid", c=str(str=FilterPID)),
+        else=array(a="windows.vadinfo")
+      )
+      
+      LET args = base_args + quiet_flag + pid_args
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'windows.vadinfo' as Plugin,
+        MemoryDumpPath as MemoryDump,
+        FilterPID as FilteredPID,
+        Stdout as Output,
+        Stderr as Errors,
+        ReturnCode as ExitCode,
+        timestamp(epoch=now()) as ExecutionTime
+      FROM result

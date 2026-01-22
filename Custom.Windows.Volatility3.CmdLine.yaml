@@ -1,0 +1,47 @@
+name: Custom.Windows.Volatility3.CmdLine
+description: |
+  Display process command line arguments.
+  Essential for understanding how processes were executed.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 2.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: OutputFormat
+    type: string
+    default: "pretty"
+    description: Output format (pretty, csv, json, jsonl)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: CommandLine
+    query: |
+      LET args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.cmdline"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.cmdline")
+      )
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'windows.cmdline' as Plugin,
+        MemoryDumpPath as MemoryDump,
+        Stdout as Output,
+        Stderr as Errors,
+        ReturnCode as ExitCode,
+        timestamp(epoch=now()) as ExecutionTime
+      FROM result

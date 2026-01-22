@@ -1,0 +1,65 @@
+name: Custom.Windows.Volatility3.PrintKey
+description: |
+  Print registry key values.
+  Essential for finding persistence mechanisms and malware configuration.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 4.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: RegistryKey
+    type: string
+    default: "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+    description: Registry key path to query
+  
+  - name: Recurse
+    type: bool
+    default: false
+    description: Recursively print subkeys
+  
+  - name: OutputFormat
+    type: string
+    default: "pretty"
+    description: Output format (pretty, csv, json, jsonl)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: PrintKey
+    query: |
+      LET base_args = array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat)
+      
+      LET quiet_flag = if(condition=QuietMode, then=array(a="-q"), else=array())
+      
+      LET key_args = if(
+        condition=Recurse,
+        then=array(a="windows.registry.printkey", b="--key", c=RegistryKey, d="--recurse"),
+        else=array(a="windows.registry.printkey", b="--key", c=RegistryKey)
+      )
+      
+      LET args = base_args + quiet_flag + key_args
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'windows.registry.printkey' as Plugin,
+        MemoryDumpPath as MemoryDump,
+        RegistryKey as QueriedKey,
+        Recurse as RecursiveQuery,
+        Stdout as Output,
+        Stderr as Errors,
+        ReturnCode as ExitCode,
+        timestamp(epoch=now()) as ExecutionTime
+      FROM result

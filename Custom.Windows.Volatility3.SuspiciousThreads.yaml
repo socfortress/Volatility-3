@@ -1,0 +1,47 @@
+name: Custom.Windows.Volatility3.SuspiciousThreads
+description: |
+  List suspicious userland process threads.
+  Detects code injection via thread manipulation.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 6.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: OutputFormat
+    type: string
+    default: "pretty"
+    description: Output format (pretty, csv, json, jsonl)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: SuspiciousThreads
+    query: |
+      LET args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.malware.suspicious_threads"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.malware.suspicious_threads")
+      )
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'windows.malware.suspicious_threads' as Plugin,
+        MemoryDumpPath as MemoryDump,
+        Stdout as Output,
+        Stderr as Errors,
+        ReturnCode as ExitCode,
+        timestamp(epoch=now()) as ExecutionTime
+      FROM result

@@ -1,0 +1,147 @@
+name: Custom.Windows.Volatility3.RootkitWorkflow
+description: |
+  Complete rootkit investigation workflow.
+  Runs all rootkit detection plugins in sequence.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 7.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: OutputFormat
+    type: string
+    default: "pretty"
+    description: Output format (pretty, csv, json, jsonl)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: Step1_SystemInfo
+    query: |
+      LET args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.info"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.info")
+      )
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'Step1_SystemInfo' as WorkflowStep,
+        'windows.info' as Plugin,
+        Stdout as Output,
+        ReturnCode as ExitCode
+      FROM result
+
+  - name: Step2_ActiveProcesses
+    query: |
+      LET args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.pslist"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.pslist")
+      )
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'Step2_ActiveProcesses' as WorkflowStep,
+        'windows.pslist' as Plugin,
+        Stdout as Output,
+        ReturnCode as ExitCode
+      FROM result
+
+  - name: Step3_ScanAllProcesses
+    query: |
+      LET args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.psscan"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.psscan")
+      )
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'Step3_ScanAllProcesses' as WorkflowStep,
+        'windows.psscan' as Plugin,
+        Stdout as Output,
+        ReturnCode as ExitCode
+      FROM result
+
+  - name: Step4_CheckSSDT
+    query: |
+      LET args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.ssdt"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.ssdt")
+      )
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'Step4_CheckSSDT' as WorkflowStep,
+        'windows.ssdt' as Plugin,
+        Stdout as Output,
+        ReturnCode as ExitCode
+      FROM result
+
+  - name: Step5_LoadedDrivers
+    query: |
+      LET args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.modules"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.modules")
+      )
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'Step5_LoadedDrivers' as WorkflowStep,
+        'windows.modules' as Plugin,
+        Stdout as Output,
+        ReturnCode as ExitCode
+      FROM result
+
+  - name: Step6_ScanAllDrivers
+    query: |
+      LET args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.driverscan"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.driverscan")
+      )
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'Step6_ScanAllDrivers' as WorkflowStep,
+        'windows.driverscan' as Plugin,
+        Stdout as Output,
+        ReturnCode as ExitCode
+      FROM result
+
+  - name: Step7_KernelCallbacks
+    query: |
+      LET args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.callbacks"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.callbacks")
+      )
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'Step7_KernelCallbacks' as WorkflowStep,
+        'windows.callbacks' as Plugin,
+        Stdout as Output,
+        ReturnCode as ExitCode
+      FROM result

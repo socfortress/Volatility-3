@@ -1,0 +1,57 @@
+name: Custom.Windows.Volatility3.RansomwareWorkflow
+description: |
+  Complete ransomware investigation workflow.
+  Identify encryption process, file handles, shadow copy deletion, crypto keys.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 7.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: OutputFormat
+    type: string
+    default: "csv"
+    description: Output format (csv recommended for workflows)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: RansomwareWorkflow
+    query: |
+      LET plugins = ("windows.pslist", "windows.handles", "windows.cmdline", "windows.netscan", "windows.mutantscan")
+      
+      SELECT 
+        _value as Plugin,
+        timestamp(epoch=now()) as ExecutionTime,
+        ReturnCode as ExitCode,
+        if(condition=ReturnCode = 0, then="✓ Success", else="✗ Failed") as Status
+      FROM foreach(
+        row=plugins,
+        query={
+          SELECT 
+            _value,
+            ReturnCode,
+            Stdout,
+            Stderr
+          FROM if(
+            condition=QuietMode,
+            then={
+              SELECT * FROM execve(argv=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g=_value), length=10000000)
+            },
+            else={
+              SELECT * FROM execve(argv=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f=_value), length=10000000)
+            }
+          )
+        }
+      )

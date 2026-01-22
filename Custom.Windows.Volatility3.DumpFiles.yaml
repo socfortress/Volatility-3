@@ -1,0 +1,67 @@
+name: Custom.Windows.Volatility3.DumpFiles
+description: |
+  Extract cached files from memory.
+  Can recover deleted files, executables, and documents.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 6.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: FilterPID
+    type: int
+    default: 0
+    description: Filter by specific process ID (0 for all)
+  
+  - name: OutputDirectory
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\DumpedFiles"
+    description: Directory to save dumped files
+  
+  - name: OutputFormat
+    type: string
+    default: "pretty"
+    description: Output format (pretty, csv, json, jsonl)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: DumpFiles
+    query: |
+      LET base_args = array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat)
+      
+      LET quiet_flag = if(condition=QuietMode, then=array(a="-q"), else=array())
+      
+      LET output_args = array(a="-o", b=OutputDirectory)
+      
+      LET pid_args = if(
+        condition=FilterPID > 0,
+        then=array(a="windows.dumpfiles", b="--pid", c=str(str=FilterPID)),
+        else=array(a="windows.dumpfiles")
+      )
+      
+      LET args = base_args + quiet_flag + output_args + pid_args
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'windows.dumpfiles' as Plugin,
+        MemoryDumpPath as MemoryDump,
+        FilterPID as FilteredPID,
+        OutputDirectory as DumpLocation,
+        Stdout as Output,
+        Stderr as Errors,
+        ReturnCode as ExitCode,
+        timestamp(epoch=now()) as ExecutionTime
+      FROM result

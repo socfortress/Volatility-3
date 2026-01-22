@@ -1,0 +1,47 @@
+name: Custom.Windows.Volatility3.Timeliner
+description: |
+  Create comprehensive timeline of system activity.
+  Combines multiple artifact sources into chronological order.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 8.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: OutputFormat
+    type: string
+    default: "pretty"
+    description: Output format (pretty, csv, json, jsonl)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: Timeline
+    query: |
+      LET args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="timeliner"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="timeliner")
+      )
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'timeliner' as Plugin,
+        MemoryDumpPath as MemoryDump,
+        Stdout as Output,
+        Stderr as Errors,
+        ReturnCode as ExitCode,
+        timestamp(epoch=now()) as ExecutionTime
+      FROM result

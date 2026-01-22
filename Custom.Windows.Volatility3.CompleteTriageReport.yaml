@@ -1,0 +1,85 @@
+name: Custom.Windows.Volatility3.CompleteTriageReport
+description: |
+  Run comprehensive analysis and generate summary report.
+  Executes all major plugins and summarizes findings.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 8.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: OutputFormat
+    type: string
+    default: "csv"
+    description: Output format (pretty, csv, json, jsonl)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: TriageExecution
+    query: |
+      LET plugins = (
+        "windows.info",
+        "windows.pslist",
+        "windows.psscan",
+        "windows.pstree",
+        "windows.cmdline",
+        "windows.netscan",
+        "windows.netstat",
+        "windows.dlllist",
+        "windows.handles",
+        "windows.malware.malfind",
+        "windows.malware.psxview",
+        "windows.malware.hollowprocesses",
+        "windows.malware.ldrmodules",
+        "windows.malware.suspicious_threads",
+        "windows.ssdt",
+        "windows.modules",
+        "windows.driverscan",
+        "windows.callbacks",
+        "windows.devicetree",
+        "windows.registry.hivelist",
+        "windows.registry.userassist",
+        "windows.shimcachemem",
+        "windows.svcscan",
+        "windows.mutantscan",
+        "windows.filescan"
+      )
+      
+      SELECT 
+        _value as Plugin,
+        timestamp(epoch=now()) as StartTime,
+        ReturnCode as ExitCode,
+        if(condition=ReturnCode = 0, then="✓ Success", else="✗ Failed") as Status,
+        len(list=Stdout) as OutputSize,
+        if(condition=Stderr, then=Stderr, else="No errors") as Errors
+      FROM foreach(
+        row=plugins,
+        query={
+          SELECT 
+            _value,
+            ReturnCode,
+            Stdout,
+            Stderr
+          FROM if(
+            condition=QuietMode,
+            then={
+              SELECT * FROM execve(argv=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g=_value), length=10000000)
+            },
+            else={
+              SELECT * FROM execve(argv=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f=_value), length=10000000)
+            }
+          )
+        }
+      )

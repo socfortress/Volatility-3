@@ -1,0 +1,137 @@
+name: Custom.Windows.Volatility3.MasterCollection
+description: |
+  Master collection artifact - runs selected categories of Volatility plugins.
+  Choose which analysis categories to run: QuickStart, Process, Network, Registry, Rootkit, Malware.
+  Based on SOCFortress Volatility 3 Cheatsheet.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: RunQuickStart
+    type: bool
+    default: true
+    description: Run quick start plugins (info, pslist, pstree, netscan)
+  
+  - name: RunProcessAnalysis
+    type: bool
+    default: false
+    description: Run process analysis plugins (malfind, vadinfo, privileges, cmdline)
+  
+  - name: RunNetworkAnalysis
+    type: bool
+    default: false
+    description: Run network analysis plugins (netstat, netscan)
+  
+  - name: RunRegistryAnalysis
+    type: bool
+    default: false
+    description: Run registry analysis plugins (hivelist, userassist, shimcache)
+  
+  - name: RunRootkitDetection
+    type: bool
+    default: false
+    description: Run rootkit detection plugins (ssdt, modules, driverscan, callbacks)
+  
+  - name: RunMalwareAnalysis
+    type: bool
+    default: false
+    description: Run malware analysis plugins (hollowprocesses, ldrmodules, psxview)
+  
+  - name: OutputFormat
+    type: string
+    default: "pretty"
+    description: Output format (pretty, csv, json, jsonl)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: MasterCollection
+    query: |
+      LET all_plugins <= SELECT * FROM chain(
+        a={
+          SELECT * FROM if(
+            condition=RunQuickStart,
+            then={
+              SELECT _value FROM foreach(row=("windows.info", "windows.pslist", "windows.psscan", "windows.pstree", "windows.netscan"))
+            }
+          )
+        },
+        b={
+          SELECT * FROM if(
+            condition=RunProcessAnalysis,
+            then={
+              SELECT _value FROM foreach(row=("windows.malware.malfind", "windows.vadinfo", "windows.privileges", "windows.cmdline", "windows.envars", "windows.getsids"))
+            }
+          )
+        },
+        c={
+          SELECT * FROM if(
+            condition=RunNetworkAnalysis,
+            then={
+              SELECT _value FROM foreach(row=("windows.netstat", "windows.netscan"))
+            }
+          )
+        },
+        d={
+          SELECT * FROM if(
+            condition=RunRegistryAnalysis,
+            then={
+              SELECT _value FROM foreach(row=("windows.registry.hivelist", "windows.registry.userassist", "windows.shimcachemem"))
+            }
+          )
+        },
+        e={
+          SELECT * FROM if(
+            condition=RunRootkitDetection,
+            then={
+              SELECT _value FROM foreach(row=("windows.ssdt", "windows.modules", "windows.driverscan", "windows.callbacks", "windows.devicetree"))
+            }
+          )
+        },
+        f={
+          SELECT * FROM if(
+            condition=RunMalwareAnalysis,
+            then={
+              SELECT _value FROM foreach(row=("windows.malware.hollowprocesses", "windows.malware.ldrmodules", "windows.malware.psxview", "windows.svcscan", "windows.mutantscan"))
+            }
+          )
+        }
+      )
+      
+      SELECT 
+        _value as Plugin,
+        timestamp(epoch=now()) as ExecutionTime,
+        ReturnCode as ExitCode,
+        if(condition=ReturnCode = 0, then="✓ Success", else="✗ Failed") as Status,
+        len(list=Stdout) as OutputSize
+      FROM foreach(
+        row=all_plugins,
+        query={
+          SELECT 
+            _value,
+            ReturnCode,
+            Stdout,
+            Stderr
+          FROM if(
+            condition=QuietMode,
+            then={
+              SELECT * FROM execve(argv=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g=_value), length=10000000)
+            },
+            else={
+              SELECT * FROM execve(argv=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f=_value), length=10000000)
+            }
+          )
+        }
+      )

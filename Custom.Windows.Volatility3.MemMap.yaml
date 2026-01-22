@@ -1,0 +1,76 @@
+name: Custom.Windows.Volatility3.MemMap
+description: |
+  Dump addressable memory pages for a process.
+  Useful for extracting process memory for further analysis.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 2.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: FilterPID
+    type: int
+    description: Process ID to dump memory from (required)
+  
+  - name: DumpMemory
+    type: bool
+    default: false
+    description: Actually dump memory pages to disk
+  
+  - name: OutputDirectory
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\MemDumps"
+    description: Directory to save dumped memory
+  
+  - name: OutputFormat
+    type: string
+    default: "pretty"
+    description: Output format (pretty, csv, json, jsonl)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: MemoryMap
+    query: |
+      LET base_args = array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat)
+      
+      LET quiet_flag = if(condition=QuietMode, then=array(a="-q"), else=array())
+      
+      LET output_args = if(
+        condition=DumpMemory,
+        then=array(a="-o", b=OutputDirectory),
+        else=array()
+      )
+      
+      LET plugin_args = if(
+        condition=DumpMemory,
+        then=array(a="windows.memmap", b="--pid", c=str(str=FilterPID), d="--dump"),
+        else=array(a="windows.memmap", b="--pid", c=str(str=FilterPID))
+      )
+      
+      LET args = base_args + quiet_flag + output_args + plugin_args
+      
+      LET result = SELECT * FROM execve(argv=args, length=10000000)
+      
+      SELECT 
+        'windows.memmap' as Plugin,
+        MemoryDumpPath as MemoryDump,
+        FilterPID as TargetPID,
+        DumpMemory as MemoryDumped,
+        OutputDirectory as DumpLocation,
+        Stdout as Output,
+        Stderr as Errors,
+        ReturnCode as ExitCode,
+        timestamp(epoch=now()) as ExecutionTime
+      FROM result

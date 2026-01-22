@@ -1,0 +1,56 @@
+name: Custom.Windows.Volatility3.FindHiddenDrivers
+description: |
+  Compare modules vs driverscan to find hidden drivers.
+  Automated comparison for rootkit driver detection.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 8.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: OutputFormat
+    type: string
+    default: "csv"
+    description: Output format for comparison (csv recommended)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: CompareDriverLists
+    query: |
+      -- Get loaded drivers (modules)
+      LET modules_args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.modules"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.modules")
+      )
+      
+      LET modules_result = SELECT Stdout FROM execve(argv=modules_args, length=10000000)
+      
+      -- Get all drivers (driverscan)
+      LET driverscan_args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.driverscan"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.driverscan")
+      )
+      
+      LET driverscan_result = SELECT Stdout FROM execve(argv=driverscan_args, length=10000000)
+      
+      SELECT 
+        'Hidden Driver Detection' as Analysis,
+        'Compare modules output with driverscan output to find hidden drivers' as Instructions,
+        modules_result.Stdout[0] as ModulesOutput,
+        driverscan_result.Stdout[0] as DriverScanOutput,
+        'Drivers in DriverScan but not in Modules are potentially hidden by rootkits' as Note
+      FROM scope()

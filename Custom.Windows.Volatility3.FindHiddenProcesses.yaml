@@ -1,0 +1,56 @@
+name: Custom.Windows.Volatility3.FindHiddenProcesses
+description: |
+  Compare pslist vs psscan to find hidden processes.
+  Automated comparison for rootkit detection.
+  Based on SOCFortress Volatility 3 Cheatsheet Section 8.
+author: https://www.linkedin.com/in/moussa-amine/
+type: CLIENT
+
+parameters:
+  - name: MemoryDumpPath
+    type: string
+    description: Full path to the memory dump file
+  
+  - name: OutputFormat
+    type: string
+    default: "csv"
+    description: Output format for comparison (csv recommended)
+  
+  - name: QuietMode
+    type: bool
+    default: true
+    description: Suppress progress messages
+  
+  - name: VolatilityPath
+    type: string
+    default: "C:\\ProgramData\\Volatility3\\Python\\Scripts\\vol.exe"
+    description: Path to vol.exe
+
+sources:
+  - name: CompareProcessLists
+    query: |
+      -- Get active processes (pslist)
+      LET pslist_args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.pslist"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.pslist")
+      )
+      
+      LET pslist_result = SELECT Stdout FROM execve(argv=pslist_args, length=10000000)
+      
+      -- Get all processes (psscan)
+      LET psscan_args = if(
+        condition=QuietMode,
+        then=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="-q", g="windows.psscan"),
+        else=array(a=VolatilityPath, b="-f", c=MemoryDumpPath, d="-r", e=OutputFormat, f="windows.psscan")
+      )
+      
+      LET psscan_result = SELECT Stdout FROM execve(argv=psscan_args, length=10000000)
+      
+      SELECT 
+        'Hidden Process Detection' as Analysis,
+        'Compare pslist output with psscan output to find hidden processes' as Instructions,
+        pslist_result.Stdout[0] as PsListOutput,
+        psscan_result.Stdout[0] as PsScanOutput,
+        'Processes in PsScan but not in PsList are potentially hidden by rootkits' as Note
+      FROM scope()
