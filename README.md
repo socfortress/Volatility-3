@@ -5,11 +5,6 @@
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/aminemoussaa/Volatility-3)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/aminemoussaa/Volatility-3/graphs/commit-activity)
 
-<div align="center">
-  <img src="https://raw.githubusercontent.com/socfortress/CoPilot/main/frontend/src/assets/images/socfortress_logo.svg" width="200" height="150" alt="SOCFortress Logo">
-  <h3>Complete Collection of 44 Production-Ready Velociraptor Artifacts for Volatility 3 Memory Forensics</h3>
-  <p><em>Created by Amine Moussa for SOCFortress | Based on SOCFortress Volatility 3 Ultimate Memory Forensics Cheatsheet</em></p>
-</div>
 
 ---
 
