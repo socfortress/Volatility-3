@@ -1,6 +1,5 @@
 # 🎯 Volatility3-Velociraptor-Artifacts
 
-[![GitHub stars](https://img.shields.io/github/stars/aminemoussaa/Volatility-3?style=social)](https://github.com/aminemoussaa/Volatility-3)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/aminemoussaa/Volatility-3)
 [![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/aminemoussaa/Volatility-3/graphs/commit-activity)
